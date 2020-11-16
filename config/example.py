@@ -3,6 +3,9 @@ DEBUG = True
 SECRET_KEY = 'secret-key'
 SERVER_NAME = 'localhost:5000'
 
+LDAP_SERVER = 'ldaps://ldap.lug.ustc.edu.cn'
+BASE_DN = 'dc=lug,dc=ustc,dc=edu,dc=cn'
+
 MAIL_ENABLE = False
 MAIL_SERVER = 'localhost'
 MAIL_PORT = 25

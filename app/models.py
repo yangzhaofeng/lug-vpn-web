@@ -4,6 +4,7 @@ from app.utils import *
 import hashlib
 import datetime
 import calendar
+import ldap3
 
 
 class Group(db.Model):
@@ -115,14 +116,14 @@ class User(db.Model, UserMixin):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(63), unique=True)
-    passwordhash = db.Column(db.String(127), nullable=False)
-    salt = db.Column(db.String(127), nullable=False)
+    #passwordhash = db.Column(db.String(127), nullable=False)
+    #salt = db.Column(db.String(127), nullable=False)
     active = db.Column(db.Boolean(), default=False)
     admin = db.Column(db.Boolean(), default=False)
     status = db.Column(db.Enum('none', 'applying', 'pass', 'reject', 'banned'), default='none')
     name = db.Column(db.String(127))
-    studentno = db.Column(db.String(127))
-    phone = db.Column(db.String(127))
+    #studentno = db.Column(db.String(127))
+    #phone = db.Column(db.String(127))
     reason = db.Column(db.Text)
     applytime = db.Column(db.DateTime)
     vpnpassword = db.Column(db.String(127))
@@ -131,9 +132,9 @@ class User(db.Model, UserMixin):
     expiration = db.Column(db.Date)
     renewing = db.Column(db.Boolean(), default=False)
 
-    def __init__(self, email, password):
+    def __init__(self, email):
         self.email = email
-        self.set_password(password)
+        #self.set_password(password)
 
     def set_active(self):
         if VPNAccount.get_account_by_email(self.email):
@@ -143,18 +144,36 @@ class User(db.Model, UserMixin):
         self.active = True
         self.save()
 
-    def set_password(self, password):
-        self.salt = random_string(10)
-        s = hashlib.sha256()
-        s.update(password.encode('utf-8'))
-        s.update(self.salt.encode('utf-8'))
-        self.passwordhash = s.hexdigest()
+    #def set_password(self, password):
+    #    self.salt = random_string(10)
+    #    s = hashlib.sha256()
+    #    s.update(password.encode('utf-8'))
+    #    s.update(self.salt.encode('utf-8'))
+    #    self.passwordhash = s.hexdigest()
 
-    def check_password(self, password):
-        s = hashlib.sha256()
-        s.update(password.encode('utf-8'))
-        s.update(self.salt.encode('utf-8'))
-        return self.passwordhash == s.hexdigest()
+    #def check_password(self, password):
+    #    s = hashlib.sha256()
+    #    s.update(password.encode('utf-8'))
+    #    s.update(self.salt.encode('utf-8'))
+    #    return self.passwordhash == s.hexdigest()
+
+    def auth_ldap(self, email, password):
+        username = email
+        ldap_server = app.config['LDAP_SERVER']
+        base_dn = app.config['BASE_DN']
+        username_search = '(&(uid=' + username + '))'
+        server = ldap3.Server(ldap_server)
+        connect_search = ldap3.Connection(server, auto_bind=False)
+        try:
+            if not connect_search.bind():
+                return False
+        except:
+            return False
+        if not connect_search.search(base_dn, username_search, attributes=['*']):
+            return False
+        full_dn = connect_search.response[0]['dn']
+        connect_auth = ldap3.Connection(server, auto_bind=False, user=full_dn, password=password)
+        return connect_auth.bind()
 
     def enable_vpn(self):
         if not VPNAccount.get_account_by_email(self.email):
